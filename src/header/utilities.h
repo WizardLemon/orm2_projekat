@@ -36,6 +36,7 @@ typedef struct udp_header{
 }udp_header_t;
 
 typedef struct packet {
+    //link_layer_header_t llh; Nisam siguran da li je potrebno
     ethernet_header_t eth;
     ip_header_t iph;
     udp_header_t udph;

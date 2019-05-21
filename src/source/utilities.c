@@ -45,7 +45,7 @@
 //        }
 //    }
 //}
-#ifdef _MSC_VER
+#ifdef _WIN32
     /* WINDOWS COMPATIBILITY BEGIN */
     /* WINDOWS COMPATIBILITY END */
 #else
