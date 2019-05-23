@@ -3,8 +3,6 @@
 #include "../header/server.h"
 #include "../header/utilities.h"
 
-#define PACKET_ARRAY_MAX_LEN 100
-
 #ifdef _MSC_VER
     /* WINDOWS COMPATIBILITY BEGIN */
     #define _CRT_SECURE_NO_WARNINGS
@@ -15,28 +13,68 @@
     #include <netinet/in.h>
     #include <pthread.h>
     /* LINUX COMPATIBILITY END */
+
+    pthread_mutex_t circular_buffer_lock;
 #endif
 
-int server_receive_packet(pcap_if_t * device, packet_t * packet_receiving_array, int * packet_receiving_index) {
+
+
+int server_receive_packet(pcap_if_t * device, packet_circular_buffer_t * buffer) {
     unsigned char result = 0;
     struct pcap_pkthdr ** pkt_header; //Ovo se koristi za statistiku;
-    const u_char ** pcap_temp_data; //Ovo treba zameniti tako da se koristi packet_receiving_array
-    while((result = pcap_next_ex(device, pkt_header, pcap_temp_data)) >= 0) {
-        //Cuvanje paketa i njihova obrada
-    }
+
+#ifdef _WIN32
+    /* WINDOWS COMPATIBILITY BEGIN */
+
+
+    /* WINDOWS COMPATIBILITY END */
+#else
+    /* LINUX COMPATIBILITY BEGIN */
+    //Koristiti circular_buffer_lock za sinhronizaciju sa funkcijom server_send_packet
+
+    /* LINUX COMPATIBILITY END */
+#endif
+
 }
 
-int server_send_packet(pcap_if_t * device, packet_t * packet_sending_array, int * packet_sending_index) {
+int server_send_packet(pcap_if_t * device, packet_circular_buffer_t * buffer) {
     unsigned char result = 0;
 
+#ifdef _WIN32
+    /* WINDOWS COMPATIBILITY BEGIN */
+
+
+    /* WINDOWS COMPATIBILITY END */
+#else
+    /* LINUX COMPATIBILITY BEGIN */
+    //Koristiti
+
+    /* LINUX COMPATIBILITY END */
+#endif
 }
+
+
 
 int main(int argc, char *argv[]) {
     pcap_if_t * device_list;        //List of network interfaces
     pcap_if_t * ethernet_device; //Ethernet interface
     pcap_if_t * wifi_device;  //Wifi interface
-    packet_t recieving_packets[PACKET_ARRAY_MAX_LEN], sending_packets[PACKET_ARRAY_MAX_LEN]; //PACKET_ARRAY
+
+    //Sa obzirom da server samo prenosi pakete od jednog korisnika do drugog
+    //koristimo circular buffer koji se koristi izmedju niti za slanje i primanje
+    //Sinhronizacija je zamisljena tako da nit koja salje pakete ceka dook se
+    //buffer ne popuni
+        //Ideje realizovanja niti
+            //1. Dve niti: prva za primanje i slanje paketa za wifi koja odma
+                //prosledjuje paket kada joj stigne, a druga isto to samo za Ethernet
+            //2. Cetiri niti: dve za slanje i primanje za Wifi i za Ethernet
+            //3. Dve niti: prva za primanje preko wifi-a i ethernet-a, druga
+                //za slanje preko wifi-a i ethernet-a
+    packet_circular_buffer_t * buffer;
+    //
+
     char errorMsg[PCAP_ERRBUF_SIZE + 1];
+
 
     unsigned char i, j, k; //iterators
     unsigned char number_of_sending = atoi(argv[1]);
@@ -62,8 +100,9 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-#ifdef _WIN32
+    packet_circular_buffer_init(buffer);
 
+#ifdef _WIN32
 
 #else
     /* LINUX COMPATIBILITY BEGIN */
@@ -71,7 +110,6 @@ int main(int argc, char *argv[]) {
     pthread_t recieving_thread[2]; //One receiving thread is for WiFi, other is for internet
     /* LINUX COMPATIBILITY END */
 #endif
-
 
     return 0;
 }

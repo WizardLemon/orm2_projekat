@@ -1,7 +1,9 @@
 #ifndef UTILITIES_H
 #define UTILITIES_H
 #include <pcap.h>
+
 #define PACKET_DATA_LEN 255
+#define CIRCULAR_BUFFER_SIZE 100
 
 typedef struct ethernet_header{
     unsigned char dest_address[6];		// Destination address
@@ -44,6 +46,12 @@ typedef struct packet {
     unsigned char packet_number;
     unsigned char data[PACKET_DATA_LEN]; //Actual data
 }packet_t;
+
+typedef struct packet_circular_buffer {
+    short read_buffer_index, write_buffer_index;
+    short current_number_of_elements;
+    packet_t packet_buffer[CIRCULAR_BUFFER_SIZE];
+} packet_circular_buffer_t;
 
 /**
  * @brief print_ethernet_header
@@ -91,4 +99,36 @@ void print_application_data(unsigned char* data, long data_length);
  * @param udh
  */
 void print_udp_header(udp_header_t * uh);
+
+/**
+ * @brief packet_circular_buffer_init: Initializes the packet_circular_buffer
+ * @param buffer
+ * @return
+ */
+int packet_circular_buffer_init(packet_circular_buffer_t * buffer);
+
+/**
+ * @brief packet_circular_buffer_pop: Removes one element from packet_circular_buffer at read_buffer_index
+ * @param buffer
+ * @param poped_packet
+ * @return
+ */
+int packet_circular_buffer_pop(packet_circular_buffer_t * buffer, packet_t * poped_packet);
+
+/**
+ * @brief packet_circular_buffer_push: Adds one element to packet_circular_buffer at write_buffer_index
+ * @param buffer
+ * @param packet
+ * @return
+ */
+int packet_circular_buffer_push(packet_circular_buffer_t * buffer, packet_t * packet);
+
+/**
+ * @brief packet_circular_buffer_read_at: Reads an element at "index" without removing it from the buffer
+ * @param buffer
+ * @parama read_packet
+ * @param index: Which element we want to read
+ * @return
+ */
+int packet_circular_buffer_read_at(packet_circular_buffer_t * buffer, packet_t * read_packet, short index);
 #endif // UTILITIES_H

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include "../header/utilities.h"
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef _MSC_VER
 #else
@@ -133,4 +135,42 @@ void print_ip_header(ip_header_t * iph)
     printf("\n=============================================================");
 
     return;
+}
+
+int packet_circular_buffer_init(packet_circular_buffer_t * buffer) {
+    if(buffer == NULL) {
+        return -1;
+    }
+    memset(buffer, 0, CIRCULAR_BUFFER_SIZE*sizeof(packet_circular_buffer_t));
+    return 0;
+}
+
+int packet_circular_buffer_pop(packet_circular_buffer_t * buffer, packet_t * poped_packet) {
+    if(buffer->current_number_of_elements <= 0) {
+        return -1;
+    }
+    buffer->read_buffer_index = (buffer->read_buffer_index + 1)%CIRCULAR_BUFFER_SIZE;
+    buffer->current_number_of_elements--;
+    *poped_packet = (buffer->packet_buffer)[buffer->read_buffer_index];
+    return 0;
+}
+
+int packet_circular_buffer_push(packet_circular_buffer_t * buffer, packet_t * packet) {
+    if(packet == NULL) {
+        return -1;
+    } if (buffer->current_number_of_elements > CIRCULAR_BUFFER_SIZE) {
+        return -2;
+    }
+    buffer->write_buffer_index = (buffer->write_buffer_index + 1)%CIRCULAR_BUFFER_SIZE;
+    buffer->current_number_of_elements++;
+    (buffer->packet_buffer)[buffer->write_buffer_index] = *packet;
+    return 0;
+}
+
+int packet_circular_buffer_read_at(packet_circular_buffer_t * buffer, packet_t * read_packet, short index) {
+    if(index < CIRCULAR_BUFFER_SIZE) {
+        return -1;
+    }
+    *read_packet = buffer->packet_buffer[index];
+    return 0;
 }

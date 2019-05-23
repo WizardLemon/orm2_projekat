@@ -3,11 +3,10 @@
 #include "../header/client.h"
 #include "../header/utilities.h"
 
-#define PACKET_ARRAY_MAX_LEN 100
-
 #ifdef _MSC_VER
     /* WINDOWS COMPATIBILITY BEGIN */
     #define _CRT_SECURE_NO_WARNINGS
+    #include <windows.h>
     /* WINDOWS COMPATIBILITY END */
 #else
     /* LINUX COMPATIBILITY BEGIN */
@@ -16,7 +15,7 @@
     /* LINUX COMPATIBILITY END */
 #endif
 
-int client_receive_packets(pcap_if_t * device, packet_t * packet_receiving_array, int * packet_receiving_index) {
+int client_receive_packets(pcap_if_t * device, packet_t * packet_receiving_array) {
     unsigned char result = 0;
     struct pcap_pkthdr ** pkt_header; //Ovo se koristi za statistiku;
     const u_char ** pcap_temp_data; //Ovo treba zameniti tako da se koristi packet_receiving_array
@@ -25,7 +24,7 @@ int client_receive_packets(pcap_if_t * device, packet_t * packet_receiving_array
     }
 }
 
-int client_send_packets(pcap_if_t * device, packet_t * packet_sending_array, int * packet_sending_index) {
+int client_send_packets(pcap_if_t * device, packet_t * packet_sending_array) {
     unsigned char result = 0;
 
 }
@@ -64,6 +63,7 @@ int main(int argc, char *argv[]) {
         printf("\nChoose a valid Ethernet based device.\n");
         return -1;
     }
+
 #ifdef _WIN32
 
 #else
