@@ -77,7 +77,7 @@ char* convert_sockaddr_to_string(struct sockaddr* address);
  */
 pcap_if_t* select_device(pcap_if_t* devices);
 
-//TREBA IMPLEMENTIRATI
+
 /**
  * @brief print_application_data
  * @param data
@@ -86,7 +86,7 @@ pcap_if_t* select_device(pcap_if_t* devices);
 void print_application_data(unsigned char* data, long data_length);
 
 /**
- * @brief print_udp_header TREBA IMPLEMENTIRATI
+ * @brief print_udp_header
  * @param udh
  */
 void print_udp_header(udp_header_t * uh);

@@ -61,7 +61,7 @@
 pcap_if_t* select_device(pcap_if_t* devices)
 {
     int device_number;
-    int i=0;			// Count devices and provide jumping to the selected device
+    int i = 0;			// Count devices and provide jumping to the selected device
     pcap_if_t* device;	// Iterator for device list
 
     // Print the list
@@ -92,7 +92,7 @@ pcap_if_t* select_device(pcap_if_t* devices)
     }
 
     // Jump to the selected device
-    for(device=devices, i=0; i< device_number-1 ;device=device->next, i++);
+    for (device=devices, i=0; i< device_number-1 ;device=device->next, i++);
 
     return device;
 }
@@ -133,4 +133,38 @@ void print_ip_header(ip_header_t * iph)
     printf("\n=============================================================");
 
     return;
+}
+
+// Print raw application data
+void print_application_data(unsigned char *data, long data_length)
+{
+    printf("\n=============================================================");
+    printf("\n\tAPPLICATION DATA");
+
+    int i;
+    printf("\n-------------------------------------------------------------\n\t");
+    for(i = 0; i < data_length; i = i + 1)
+    {
+        printf("%.2x ", ((unsigned char*)data)[i]);
+
+        // 16 bytes per line
+        if ((i+1) % 16 == 0)
+            printf("\n\t");
+    }
+    printf("\n-------------------------------------------------------------");
+
+    printf("\n=============================================================");
+}
+
+void print_udp_header(udp_header_t * uh)
+{
+	printf("\n=============================================================");
+    printf("\n\tTRANSPORT LAYER  -  User Datagram Protocol (UDP)");
+
+    printf("\n\tSource port:\t%u", ntohs(uh->src_port));
+    printf("\n\tDestination port:\t%u", ntohs(uh->dest_port));
+    printf("\n\tDatagram length:\t%u", ntohs(uh->datagram_length));
+    printf("\n\tChecksum:\t%u", ntohs(uh->checksum));
+
+    printf("\n=============================================================");
 }
