@@ -16,11 +16,13 @@
     #include <netinet/in.h>
     #include <pthread.h>
     /* LINUX COMPATIBILITY END */
-
-    pthread_mutex_t circular_buffer_lock;
 #endif
 
+/*int load_txt(char * input_buffer, FILE * file, int udp_data_size) {
+    while(fread(input_buffer, sizeof(char), udp_data_size, file) != EOF) {
 
+    }
+}*/
 
 int server_receive_packet(pcap_if_t * device, packet_circular_buffer_t * buffer) {
     unsigned char result = 0;
@@ -79,7 +81,7 @@ int main(int argc, char *argv[]) {
     pcap_if_t * devices;        	//List of network interfaces
     pcap_if_t * current_device; 	//Current network interface
     pcap_t* device_handle;
-    packet_t recieving_packets[PACKET_ARRAY_MAX_LEN], sending_packets[PACKET_ARRAY_MAX_LEN]; //PACKET_ARRAY
+    packet_t recieving_packets[PACKET_DATA_LEN], sending_packets[PACKET_DATA_LEN]; //PACKET_ARRAY
 
     char errorMsg[PCAP_ERRBUF_SIZE + 1];
 	
@@ -91,27 +93,31 @@ int main(int argc, char *argv[]) {
     unsigned char number_of_sending = atoi(argv[1]);
 
     // Retrieve the device list
-    if(pcap_findalldevs(&device_list, errorMsg) == -1)
+    if(pcap_findalldevs(&devices, errorMsg) == -1)
     {
         printf("Error in pcap_findalldevs: %s\n", errorMsg);
         return -1;
     }
 
-/* HEAD
+    //OVO MORA DA STOJI ZATO STO NAM TREBAJU DVA UREDJAJA ZA SLANJE
+    //JEDAN ZA WIFI DRUGI ZA ETHERNET
     ethernet_device = select_device(device_list);
     wifi_device = select_device(device_list);
 
     //Checking if Ethernet device was choosen
     if(pcap_datalink(ethernet_device) != DLT_EN10MB) 	{
         printf("\nChoose a valid Ethernet based device.\n");
+        pcap_freealldevs(devices);
         return -1;
     }
+
     //Checking if WiFi device was choosen
     if(pcap_datalink(ethernet_device) != DLT_IEEE802_11) 	{
         printf("\nChoose a valid Ethernet based device.\n");
+        pcap_freealldevs(devices);
         return -1;
     }
-*/
+    /*
     current_device = select_device(devices);
     
     // Check if device is valid
@@ -120,7 +126,7 @@ int main(int argc, char *argv[]) {
 		pcap_freealldevs(devices);
 		return -1;
 	}
-	
+    */
 	// Open the capture device
     if ((device_handle = pcap_open_live(current_device->name,		// name of the device
     									65536,						// portion of the packet to capture (65536 guarantees that the whole 																		   packet will be captured on all the link layers)
@@ -133,14 +139,14 @@ int main(int argc, char *argv[]) {
         pcap_freealldevs(devices);
         return -1;
     }
-    
+    /*
     // Check the link layer. We support only Ethernet for simplicity.
     if (pcap_datalink(device_handle) != DLT_EN10MB)
     {
         printf("\nThis program works only on Ethernet networks.\n");
         return -1;
     }
-    
+    */
     // TODO
     // Podesiti filter i primiti paket
 

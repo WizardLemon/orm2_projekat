@@ -4,6 +4,15 @@
 
 #define PACKET_DATA_LEN 255
 #define CIRCULAR_BUFFER_SIZE 100
+#define MAXIUM_TIMEOUT_TIME 500 //500 ms
+#define MINIMUM_TIMEOUT_TIME 20 //20 ms
+#define IP_VERSION 4
+#define IP_TYPE_OF_SERVICE 0 //DEFAULT
+#define IP_HEADER_LENGTH 5
+#define IP_FRAGMENTATION_FLAG 1 //ZABRANJENO
+#define IP_TIME_TO_LIVE 13
+#define IP_NEXT_PROTOCOL 17
+#define ETHERNET_TYPE 0x0800
 
 typedef struct ethernet_header{
     unsigned char dest_address[6];		// Destination address
@@ -13,13 +22,14 @@ typedef struct ethernet_header{
 
 // IPv4 header
 typedef struct ip_header{
-    unsigned char header_length :4;	// Internet header length (4 bits)
     unsigned char version :4;		// Version (4 bits)
+    unsigned char header_length :4;	// Internet header length (4 bits)
     unsigned char tos;				// Type of service
     unsigned short length;			// Total length
-    unsigned short identification;	// Identification
-    unsigned short fragm_flags :3;  // Flags (3 bits) & Fragment offset (13 bits)
-    unsigned short fragm_offset :13;// Flags (3 bits) & Fragment offset (13 bits)
+    unsigned short identification;	// Identification for fragmentation
+    //unsigned short fragm_flags :3;  // Flags (3 bits) & Fragment offset (13 bits)
+    //unsigned short fragm_offset :13;// Flags (3 bits) & Fragment offset (13 bits)
+    unsigned short fragmentation;
     unsigned char ttl;				// Time to live
     unsigned char next_protocol;	// Protocol of the next layer
     unsigned short checksum;		// Header checksum
@@ -38,7 +48,6 @@ typedef struct udp_header{
 }udp_header_t;
 
 typedef struct packet {
-    //link_layer_header_t llh; Nisam siguran da li je potrebno
     ethernet_header_t eth;
     ip_header_t iph;
     udp_header_t udph;
@@ -53,6 +62,11 @@ typedef struct packet_circular_buffer {
     packet_t packet_buffer[CIRCULAR_BUFFER_SIZE];
 } packet_circular_buffer_t;
 
+/*typedef struct sending_params{ //Struktura za thread za slanje
+    pcap_t * sending_device;
+    unsigned int number_of_packets;
+} sending_params_t;
+*/
 /**
  * @brief print_ethernet_header
  * @param eth
@@ -131,4 +145,24 @@ int packet_circular_buffer_push(packet_circular_buffer_t * buffer, packet_t * pa
  * @return
  */
 int packet_circular_buffer_read_at(packet_circular_buffer_t * buffer, packet_t * read_packet, short index);
+
+ethernet_header_t create_eth_header(const unsigned char src_addr[6],
+                                  const unsigned char dst_addr[6]);
+
+ip_header_t create_ip_header(size_t data_size,
+                           const unsigned char src_addr[4],
+                           const unsigned char dst_addr[4]);
+
+udp_header_t create_udp_header(const unsigned short src_port,
+                             const unsigned short dst_port,
+                             const unsigned short data_size);
+
+void init_packet_headers(packet_t * p, const ethernet_header_t * eh,
+                     const ip_header_t * ih,
+                     const udp_header_t * uh);
+
+unsigned short calc_ip_checksum(const ip_header_t *ih);
+
 #endif // UTILITIES_H
+
+
