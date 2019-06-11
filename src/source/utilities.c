@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include "../header/utilities.h"
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef _MSC_VER
 #else
@@ -45,7 +47,7 @@
 //        }
 //    }
 //}
-#ifdef _MSC_VER
+#ifdef _WIN32
     /* WINDOWS COMPATIBILITY BEGIN */
     /* WINDOWS COMPATIBILITY END */
 #else
@@ -122,8 +124,8 @@ void print_ip_header(ip_header_t * iph)
     printf("\n\tType of Service:\t%u", iph->tos);
     printf("\n\tTotal length:\t\t%u", ntohs(iph->length));
     printf("\n\tIdentification:\t\t%u", ntohs(iph->identification));
-    printf("\n\tFlags:\t\t\t%u", ntohs(iph->fragm_flags));
-    printf("\n\tFragment offset:\t%u", ntohs(iph->fragm_offset));
+    printf("\n\tFlags:\t\t\t%u", ntohs(iph->fragmentation) & 0b111);
+    printf("\n\tFragment offset:\t%u", ntohs(iph->fragmentation) >> 3);
     printf("\n\tTime-To-Live:\t\t%u", iph->ttl);
     printf("\n\tNext protocol:\t\t%u", iph->next_protocol);
     printf("\n\tHeader checkSum:\t%u", ntohs(iph->checksum));
@@ -133,6 +135,44 @@ void print_ip_header(ip_header_t * iph)
     printf("\n=============================================================");
 
     return;
+}
+
+int packet_circular_buffer_init(packet_circular_buffer_t * buffer) {
+    if(buffer == NULL) {
+        return -1;
+    }
+    memset(buffer, 0, CIRCULAR_BUFFER_SIZE*sizeof(packet_circular_buffer_t));
+    return 0;
+}
+
+int packet_circular_buffer_pop(packet_circular_buffer_t * buffer, packet_t * poped_packet) {
+    if(buffer->current_number_of_elements <= 0) {
+        return -1;
+    }
+    buffer->read_buffer_index = (buffer->read_buffer_index + 1)%CIRCULAR_BUFFER_SIZE;
+    buffer->current_number_of_elements--;
+    *poped_packet = (buffer->packet_buffer)[buffer->read_buffer_index];
+    return 0;
+}
+
+int packet_circular_buffer_push(packet_circular_buffer_t * buffer, packet_t * packet) {
+    if(packet == NULL) {
+        return -1;
+    } if (buffer->current_number_of_elements > CIRCULAR_BUFFER_SIZE) {
+        return -2;
+    }
+    buffer->write_buffer_index = (buffer->write_buffer_index + 1)%CIRCULAR_BUFFER_SIZE;
+    buffer->current_number_of_elements++;
+    (buffer->packet_buffer)[buffer->write_buffer_index] = *packet;
+    return 0;
+}
+
+int packet_circular_buffer_read_at(packet_circular_buffer_t * buffer, packet_t * read_packet, short index) {
+    if(index < CIRCULAR_BUFFER_SIZE) {
+        return -1;
+    }
+    *read_packet = buffer->packet_buffer[index];
+    return 0;
 }
 
 // Print raw application data
@@ -167,4 +207,75 @@ void print_udp_header(udp_header_t * uh)
     printf("\n\tChecksum:\t%u", ntohs(uh->checksum));
 
     printf("\n=============================================================");
+}
+
+udp_header_t create_udp_header(const unsigned short src_port,
+                             const unsigned short dst_port,
+                             const unsigned short data_size) {
+    udp_header_t uh;
+
+    uh.src_port = htons(src_port);
+    uh.dest_port = htons(dst_port);
+    uh.datagram_length = htons(sizeof(udp_header_t) +
+                               data_size);
+
+    return uh;
+}
+
+ip_header_t create_ip_header(size_t data_size,
+                           const unsigned char src_addr[4],
+                           const unsigned char dst_addr[4]) {
+    ip_header_t ih;
+
+    ih.header_length = IP_HEADER_LENGTH;   // optional part is removed
+    ih.version = IP_VERSION;         // IPv4
+    ih.tos = IP_TYPE_OF_SERVICE;             // all set to default
+    ih.length = htons(sizeof(ip_header_t) +
+                      sizeof(udp_header_t) +
+                      data_size);
+    ih.identification = 0; // za pracenje fregmentacije, ne koristi se
+    ih.fragmentation = htons(IP_FRAGMENTATION_FLAG);
+    //ih.fragm_offset = htons(FRAGMLESS);   // fragmentation is forbidden
+    ih.ttl = htons(IP_TTL);
+    ih.next_protocol = IP_NEXT_PROTOCOL;
+    memcpy(ih.src_addr, src_addr, 4);
+    memcpy(ih.dst_addr, dst_addr, 4);
+
+    ih.checksum = htons(calc_ip_checksum(&ih));
+
+    return ih;
+}
+
+unsigned short calc_ip_checksum(const ip_header_t *ih) {
+    int i;
+    unsigned int sum = 0;
+    unsigned short *buff = (unsigned short*)ih;
+
+    for (i = 0; i < 10; i++)
+        sum += buff[i];
+
+    while (sum >> 16)
+        sum = (sum & 0xffff) + (sum >> 16);
+
+    return (unsigned short)(~sum);
+}
+
+ethernet_header_t create_eth_header(const unsigned char src_addr[6],
+                                  const unsigned char dst_addr[6]) {
+    ethernet_header_t eh;
+
+    memcpy(eh.src_address, src_addr, 6);
+    memcpy(eh.dest_address, dst_addr, 6);
+    eh.type = htons(ETHERNET_TYPE);
+
+    return eh;
+}
+
+void init_packet_headers(packet_t * p, const ethernet_header_t * eh,
+                     const ip_header_t * ih,
+                     const udp_header_t * uh) {
+
+    p->eth = *eh;
+    p->iph = *ih;
+    p->udph = *uh;
 }
