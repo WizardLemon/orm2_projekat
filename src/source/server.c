@@ -16,6 +16,7 @@
     #include <netinet/in.h>
     #include <pthread.h>
     //MUTEX MORA BITI OVDE, AKO SE JA DOBRO SECAM
+    pthread_mutex_t recieving_mutex;
     /* LINUX COMPATIBILITY END */
 #endif
 
@@ -35,12 +36,38 @@ const unsigned short home_port = 6000;
 const unsigned short dest_port = 6000;
 /* GLOBAL VARIABLES END */
 
+void packet handler(unsigned char *interface, const struct pcap_pkthdr* packet_header, const unsigned char* packet_data) {
+	
+	packet_t *p = (packet_t*) packet_data;
+	pcap_t *device = (pcap_t*) interface;
+	
+	int packet_sequence = p->packet_number;
+	printf("Packet number %d recieved.\n", packet_sequence);
+	
+	// unsigned short checksum = ntohs(p->iph->checksum);
+	// unsigned short checksum = ntohs(p->udph->checksum); // ovu treba iskoristiti
+	
+	long data_len = htons(p->udph->datagram_length) - sizeof(udp_header);
+	
+	// TODO
+	
+	// proveriti checksum -> ako valja
+	// inkrementirati broj primljenih paketa
+	// ubaciti paket u odgovarajuci array (recieved_packets[PACKET_ARRAY_MAX_LEN])?
+	// upisati u odgovarajucu packet array sekvencu (packet_sequence[PACKET_ARRAY_MAX_LEN])?
+	
+	// kada upisujemo u fajl? kako uopste znamo da smo primili sve pakete?
+	
+	// napraviti novi ACK paket
+	// poslati ga sa sendpacket
+}
+
 int main(int argc, char *argv[]) {
 
-    pcap_if_t * ethernet_device_item, * wifi_device_item; //Ethernet interface, Wifi interface
-    pcap_if_t * devices;        	//List of network interfaces
-    pcap_t * ethernet_device; //Ethernet interface
-    pcap_t * wifi_device;  //Wifi interface
+    pcap_if_t * ethernet_device_item, * wifi_device_item; 	//Ethernet interface, Wifi interface
+    pcap_if_t * devices;        							//List of network interfaces
+    pcap_t * ethernet_device; 								//Ethernet interface
+    pcap_t * wifi_device;  									//Wifi interface
     
     packet_t recieving_packets[PACKET_DATA_LEN], sending_packets[PACKET_DATA_LEN]; //PACKET_ARRAY
     
@@ -172,16 +199,6 @@ int main(int argc, char *argv[]) {
 		printf("\n Error setting the filter.\n");
 		return -1;
 	}
-
-
-#ifdef _WIN32
-
-#else
-    /* LINUX COMPATIBILITY BEGIN */
-    pthread_t sending_thread[2]; //One sending thread is for WiFi, other is for internet
-    pthread_t recieving_thread[2]; //One receiving thread is for WiFi, other is for internet
-    /* LINUX COMPATIBILITY END */
-#endif
 
     return 0;
 }
