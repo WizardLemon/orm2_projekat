@@ -11,6 +11,7 @@
     /* WINDOWS COMPATIBILITY BEGIN */
     #define _CRT_SECURE_NO_WARNINGS
     #include <windows.h>
+    CRITICAL_SECTION sending_mutex;      // unnamed mutex
     /* WINDOWS COMPATIBILITY END */
 #else
     /* LINUX COMPATIBILITY BEGIN */
@@ -50,23 +51,38 @@ int client_receive_ack_packet(pcap_t * device) {
     if((received_packet = (packet_t*)pcap_next(device, pkt_header)) == NULL) {
         return -1;
     }
+
+#ifdef _WIN32
+    EnterCriticalSection(&sending_mutex);
+    sending_packets[received_packet->packet_number] = *(received_packet);
+    packet_sent_confirmation[received_packet->packet_number] = 2; //Primljen je ack paket, ne treba ponovo slati
+    LeaveCriticalSection(&sending_mutex);
+#else
     pthread_mutex_lock(&sending_mutex);
     sending_packets[received_packet->packet_number] = *(received_packet);
     packet_sent_confirmation[received_packet->packet_number] = 2; //Primljen je ack paket, ne treba ponovo slati
     pthread_mutex_unlock(&sending_mutex);
 //    while((result = pcap_next_ex(device, pkt_header, pcap_temp_data)) >= 0) {
-
+#endif
 //    }
     return received_packet->packet_number; //
 }
 
+#ifdef _WIN32
+DWORD WINAPI thread_function_receive(void* device) {
+#else
 void* thread_function_receive(void* device) {
+#endif
     int packet_received_number = -1;
     unsigned char received_error_number = 0;
     unsigned char this_thread_number = receiving_thread_number++;
 
     while(1) {
+#ifdef _WIN32
+        Sleep(receiving_sleep_time[this_thread_number]/1000);
+#else
         usleep(receiving_sleep_time[this_thread_number]);
+#endif
         if((packet_received_number = client_receive_ack_packet((pcap_t*)device)) < 0) {
             printf("Error while receiving next ACK packet on thread %d.\n", this_thread_number);
 //            if((receiving_sleep_time[this_thread_number]*=2) > RECEIVE_FAIL_ATTEMPT_CLIENT) {
@@ -103,18 +119,42 @@ int prepare_packet_for_sending(FILE * file, packet_t * preparing_packet) { //tre
     return ret_val;
 }
 
-//int resend_packet(packet_t * packet) {
-
-//}
-
+#ifdef _WIN32
+DWORD WINAPI thread_function_sending(void* sending_device) {
+#else
 void* thread_function_sending(void* sending_device) {
+#endif
     printf("Packet sending started.\n");
     unsigned int counter = 0;
     unsigned char this_thread_number = sending_thread_number++;
     unsigned char sending_fail_attempt = 0;
     while(1) {
 #ifdef _WIN32
-
+        Sleep(sending_sleep_time[this_thread_number]/1000);
+        EnterCriticalSection(&sending_mutex); //Zakljucavamo zato sto ne zelimo da istovremeno i wifi i ethernet pristupe sending_packets nizu
+        if(packet_sent_confirmation[packets_sent_number] < 2) { //proveravamo da li je poslat i da li je primljen ACK (AKO JESTE ONDA JE 2)
+            printf("Initiating a packet sending for packet %d by thread %d.\n", packets_sent_number, this_thread_number);
+            if(pcap_sendpacket((pcap_t *)sending_device,
+                               (char*)&sending_packets[packets_sent_number],
+                               sizeof(packet_t))) {
+                printf("Sending failed by thread %d.\n", this_thread_number);
+                if((sending_sleep_time[this_thread_number] *= 2) > SENDING_FAIL_ATTEMPT_CLIENT) {
+                    printf("Critical number of sending failed by thread %d. Sending stoped.\n", this_thread_number);
+                }
+            } else {
+                packet_sent_confirmation[counter] = 1;
+                printf("Packet %d sent by thread %d.\n", packets_sent_number, this_thread_number);
+                packets_sent_number++;
+                if(packets_sent_number >= packet_number) {
+                    //printf("Paket number %d\n", packet_number);
+                    sending_sleep_time[this_thread_number] = SENDING_FAIL_ATTEMPT_CLIENT*10; //stavljamo sleep time na sleep funkciju na 1s
+                    packets_sent_number = 0;
+                } else {
+                    sending_sleep_time[this_thread_number] = MINIMUM_TIMEOUT_TIME;
+                }
+            }
+        }
+        LeaveCriticalSection(&sending_mutex);
 #else
         usleep(sending_sleep_time[this_thread_number]);
         pthread_mutex_lock(&sending_mutex); //Zakljucavamo zato sto ne zelimo da istovremeno i wifi i ethernet pristupe sending_packets nizu
@@ -330,9 +370,18 @@ int main(int argc, char *argv[]) {
     /* SETOVANJE FILTERA END */
 
 #ifdef _WIN32
-
+    InitializeCriticalSection(&sending_mutex);
+    HANDLE sending_thread[2], receiving_thread[2];
+    sending_thread[0] = CreateThread(NULL, 0, thread_function_sending, ethernet_device, NULL, 0, NULL);
+    sending_thread[1] = CreateThread(NULL, 0, thread_function_sending, wifi_device, NULL, 0, NULL);
+    receiving_thread[0] = CreateThread(NULL, 0, thread_function_receive, ethernet_device, NULL, 0, NULL);
+    receiving_thread[1] = CreateThread(NULL, 0, thread_function_receive, wifi_device, NULL, 0, NULL);
+    CloseThread(sending_thread[0]);
+    CloseThread(sending_thread[1]);
+    CloseThread(receiving_thread[0]);
+    CloseThread(receiving_thread[1]);
 #else
-    /* LINUX COMPATIBILITY BEGIN */
+
     pthread_mutex_init(&sending_mutex, NULL);
     pthread_t sending_thread[2], receiving_thread[2]; //One sending thread is for WiFi, other is for internet
                                              //One receiving thread is for WiFi, other is for internet
@@ -344,11 +393,10 @@ int main(int argc, char *argv[]) {
     pthread_detach(sending_thread[1]);
     pthread_detach(receiving_thread[0]);
     pthread_detach(receiving_thread[1]); //KADA SE DETACHUJE ONDA DOBIJEMO SEG FAULT
+
+#endif
     while(1) {
         usleep(100000000);
     }
-    /* LINUX COMPATIBILITY END */
-#endif
-
     return 0;
 }
