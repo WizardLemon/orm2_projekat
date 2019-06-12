@@ -15,46 +15,82 @@
     /* LINUX COMPATIBILITY BEGIN */
     #include <netinet/in.h>
     #include <pthread.h>
-    //MUTEX MORA BITI OVDE, AKO SE JA DOBRO SECAM
     /* LINUX COMPATIBILITY END */
 #endif
 
-/* CONSTANT MACROS BEGIN */
-#define PACKET_ARRAY_MAX_LEN 500
-/* CONSTANT MACROS END */
+/*int load_txt(char * input_buffer, FILE * file, int udp_data_size) {
+    while(fread(input_buffer, sizeof(char), udp_data_size, file) != EOF) {
 
-/* GLOBAL VARIABLES BEGIN */
-packet_t recieved_packets[PACKET_ARRAY_MAX_LEN];
-unsigned int number_of_packets_recieved = 0;
-unsigned char packet_sequence[PACKET_ARRAY_MAX_LEN]; //Ovo indeksiras sa sekvencom paketa
-const unsigned char home_MAC[6] = {0x08, 0x00, 0x27, 0x6a, 0x1e, 0x78};	// ZAPAMTI DA NAMESTIS NA SVOJ IP I MAC
-const unsigned char dest_MAC[6] = {0x08, 0x00, 0x27, 0x6a, 0x1e, 0x78};
-const unsigned char home_ip[4] = {192, 168, 1, 1};
-const unsigned char dest_ip[4] = {192, 168, 1, 1};
-const unsigned short home_port = 6000;
-const unsigned short dest_port = 6000;
-/* GLOBAL VARIABLES END */
+    }
+}*/
+
+int server_receive_packet(pcap_if_t * device, packet_circular_buffer_t * buffer) {
+    unsigned char result = 0;
+    struct pcap_pkthdr ** pkt_header; //Ovo se koristi za statistiku;
+
+#ifdef _WIN32
+    /* WINDOWS COMPATIBILITY BEGIN */
+
+
+    /* WINDOWS COMPATIBILITY END */
+#else
+    /* LINUX COMPATIBILITY BEGIN */
+    //Koristiti circular_buffer_lock za sinhronizaciju sa funkcijom server_send_packet
+
+    /* LINUX COMPATIBILITY END */
+#endif
+
+}
+
+int server_send_packet(pcap_if_t * device, packet_circular_buffer_t * buffer) {
+    unsigned char result = 0;
+
+#ifdef _WIN32
+    /* WINDOWS COMPATIBILITY BEGIN */
+
+
+    /* WINDOWS COMPATIBILITY END */
+#else
+    /* LINUX COMPATIBILITY BEGIN */
+    //Koristiti
+
+    /* LINUX COMPATIBILITY END */
+#endif
+}
+
+
 
 int main(int argc, char *argv[]) {
+    /*pcap_if_t * device_list;        //List of network interfaces
+    pcap_if_t * ethernet_device; //Ethernet interface
+    pcap_if_t * wifi_device;  //Wifi interface
 
-    pcap_if_t * ethernet_device_item, * wifi_device_item; //Ethernet interface, Wifi interface
+    //Sa obzirom da server samo prenosi pakete od jednog korisnika do drugog
+    //koristimo circular buffer koji se koristi izmedju niti za slanje i primanje
+    //Sinhronizacija je zamisljena tako da nit koja salje pakete ceka dook se
+    //buffer ne popuni
+        //Ideje realizovanja niti
+            //1. Dve niti: prva za primanje i slanje paketa za wifi koja odma
+                //prosledjuje paket kada joj stigne, a druga isto to samo za Ethernet
+            //2. Cetiri niti: dve za slanje i primanje za Wifi i za Ethernet
+            //3. Dve niti: prva za primanje preko wifi-a i ethernet-a, druga
+                //za slanje preko wifi-a i ethernet-a
+    packet_circular_buffer_t * buffer;
+    //*/
+
     pcap_if_t * devices;        	//List of network interfaces
-    pcap_t * ethernet_device; //Ethernet interface
-    pcap_t * wifi_device;  //Wifi interface
-    
+    pcap_if_t * current_device; 	//Current network interface
+    pcap_t* device_handle;
     packet_t recieving_packets[PACKET_DATA_LEN], sending_packets[PACKET_DATA_LEN]; //PACKET_ARRAY
-    
-    struct bpf_program fcode;
-    char filter[] = "udp and dst port 6000";
-    
-    FILE * data_file;
 
     char errorMsg[PCAP_ERRBUF_SIZE + 1];
-	
-	unsigned int netmask;
+
+    unsigned int netmask;
     char filter_exp[] = "";
 
+
     unsigned char i, j, k; //iterators
+    unsigned char number_of_sending = atoi(argv[1]);
 
     // Retrieve the device list
     if(pcap_findalldevs(&devices, errorMsg) == -1)
@@ -65,114 +101,54 @@ int main(int argc, char *argv[]) {
 
     //OVO MORA DA STOJI ZATO STO NAM TREBAJU DVA UREDJAJA ZA SLANJE
     //JEDAN ZA WIFI DRUGI ZA ETHERNET
-    printf("Izaberite odgovarajuci ethernet interfejs\n");
-    ethernet_device_item = select_device(devices);
-    
-    printf("Izaberite odgovarajuci WiFi interfejs\n");
-    wifi_device_item = select_device(devices);
+    ethernet_device = select_device(device_list);
+    wifi_device = select_device(device_list);
 
-    // Open the ethernet device for sending
-    if ((ethernet_device = pcap_open_live(ethernet_device_item->name,		// name of the device
-    									65536,						// portion of the packet to capture (65536 guarantees that the whole 																		   packet will be captured on all the link layers)
-                                        0,							// non promiscuous mode
-                                        MINIMUM_TIMEOUT_TIME,		// read timeout
-        								errorMsg					// buffer where error message is stored
-    									)) == NULL)
-    {
-        printf("%s", errorMsg);
-        printf("\nUnable to open the %s ethernet adapter.", ethernet_device_item->name);
-        pcap_freealldevs(devices);
-        return -1;
-    }
-
-	//Checking if ethernet device was chosen
+    //Checking if Ethernet device was choosen
     if(pcap_datalink(ethernet_device) != DLT_EN10MB) 	{
         printf("\nChoose a valid Ethernet based device.\n");
         pcap_freealldevs(devices);
         return -1;
     }
-    
-    // Set netmask
-#ifdef _WIN32
-	if(ethernet_device_item->addresses != NULL)
-		/* Retrieve the mask of the first address of the interface */
-		netmask=((struct sockaddr_in *)(ethernet_device_item->addresses->netmask))->sin_addr.S_un.S_addr;
-	else
-		/* If the interface is without addresses we suppose to be in a C class network */
-		netmask=0xffffff;
-#else
-    if (!ethernet_device_item->addresses->netmask)
-        netmask = 0;
-    else
-        netmask = ((struct sockaddr_in *)(ethernet_device_item->addresses->netmask))->sin_addr.s_addr;
-#endif
 
-	// Compile the filter
-	if (pcap_compile(ethernet_device, &fcode, filter, 1, netmask) < 0)
-	{
-		 printf("\n Unable to compile the packet filter. Check the syntax.\n");
-		 return -1;
-	}
+    //Checking if WiFi device was choosen
+    if(pcap_datalink(ethernet_device) != DLT_IEEE802_11) 	{
+        printf("\nChoose a valid Ethernet based device.\n");
+        pcap_freealldevs(devices);
+        return -1;
+    }
+    /*
+    current_device = select_device(devices);
 
-	// Set the filter
-	if (pcap_setfilter(ethernet_device, &fcode) < 0)
-	{
-		printf("\n Error setting the filter.\n");
-		return -1;
-	}
-
-    //Open the WiFi device for sending
-    if ((wifi_device = pcap_open_live(wifi_device_item->name,		// name of the device
+    // Check if device is valid
+    if (current_device == NULL)
+    {
+        pcap_freealldevs(devices);
+        return -1;
+    }
+    */
+    // Open the capture device
+    if ((device_handle = pcap_open_live(current_device->name,		// name of the device
                                         65536,						// portion of the packet to capture (65536 guarantees that the whole 																		   packet will be captured on all the link layers)
-                                        0,							// promiscuous mode
-                                        MINIMUM_TIMEOUT_TIME,		// read timeout
+                                        1,							// promiscuous mode
+                                        2000,						// read timeout
                                         errorMsg					// buffer where error message is stored
                                         )) == NULL)
     {
-        printf("%s", errorMsg);
-        printf("\nUnable to open the %s WiFi adapter.", wifi_device_item->name);
+        printf("\nUnable to open the adapter. %s is not supported by libpcap/WinPcap\n", current_device->name);
         pcap_freealldevs(devices);
         return -1;
     }
-    
-    printf("A");
-    
-    //Checking if WiFi device was chosen
-    if(pcap_datalink(wifi_device) != DLT_IEEE802_11) 	{
-        printf("\nChoose a valid WiFi based device.\n");
-        pcap_freealldevs(devices);
+    /*
+    // Check the link layer. We support only Ethernet for simplicity.
+    if (pcap_datalink(device_handle) != DLT_EN10MB)
+    {
+        printf("\nThis program works only on Ethernet networks.\n");
         return -1;
     }
-    
-    // Set netmask
-#ifdef _WIN32
-	if(wifi_device_item->addresses != NULL)
-		/* Retrieve the mask of the first address of the interface */
-		netmask=((struct sockaddr_in *)(wifi_device_item->addresses->netmask))->sin_addr.S_un.S_addr;
-	else
-		/* If the interface is without addresses we suppose to be in a C class network */
-		netmask=0xffffff;
-#else
-    if (!wifi_device_item->addresses->netmask)
-        netmask = 0;
-    else
-        netmask = ((struct sockaddr_in *)(wifi_device_item->addresses->netmask))->sin_addr.s_addr;
-#endif
-
-	// Compile the filter
-	if (pcap_compile(wifi_device, &fcode, filter, 1, netmask) < 0)
-	{
-		 printf("\n Unable to compile the packet filter. Check the syntax.\n");
-		 return -1;
-	}
-
-	// Set the filter
-	if (pcap_setfilter(wifi_device, &fcode) < 0)
-	{
-		printf("\n Error setting the filter.\n");
-		return -1;
-	}
-
+    */
+    // TODO
+    // Podesiti filter i primiti paket
 
 #ifdef _WIN32
 

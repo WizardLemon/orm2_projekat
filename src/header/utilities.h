@@ -3,6 +3,10 @@
 #include <pcap.h>
 
 #define PACKET_DATA_LEN 255
+#define SENDING_FAIL_ATTEMPT_CLIENT 5
+#define SENDING_PAUSE 3000000 //3 s
+#define RECEIVE_PAUSE 3000000 //3
+#define RECEIVE_FAIL_ATTEMPT_CLIENT 5
 #define CIRCULAR_BUFFER_SIZE 100
 #define MAXIUM_TIMEOUT_TIME 500 //500 ms
 #define MINIMUM_TIMEOUT_TIME 20 //20 ms
@@ -13,6 +17,7 @@
 #define IP_TIME_TO_LIVE 13
 #define IP_NEXT_PROTOCOL 17
 #define ETHERNET_TYPE 0x0800
+
 
 typedef struct ethernet_header{
     unsigned char dest_address[6];		// Destination address
@@ -52,7 +57,7 @@ typedef struct packet {
     ip_header_t iph;
     udp_header_t udph;
     unsigned char packet_ack;
-    unsigned char packet_number;
+    int packet_number;
     unsigned char data[PACKET_DATA_LEN]; //Actual data
 }packet_t;
 
