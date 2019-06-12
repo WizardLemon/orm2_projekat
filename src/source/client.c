@@ -301,6 +301,7 @@ int main(int argc, char *argv[]) {
     while(prepare_packet_for_sending(data_file, &sending_packet) >= 0) { //ova funkcija vraca -1 kada je stigla do end of file
         sending_packet.packet_number = packet_number;
         sending_packets[packet_number] = sending_packet;
+        sending_packets[packet_number].udph.checksum = calc_udp_checksum(sending_packet); //Ovde racunamo checksum
         packet_number++;
     }
     printf("Packet preparation finished. Number of packets prepared: %d\n", packet_number);
