@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }*/
     //Open file for reading
-    if((data_file = fopen("random.txt", "r")) == NULL) {
+    if((data_file = fopen("input.txt", "r")) == NULL) {
         printf("Could not open file 'random.txt'\n");
         return -1;
     }
