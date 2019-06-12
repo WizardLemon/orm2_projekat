@@ -56,9 +56,9 @@ typedef struct packet {
     ethernet_header_t eth;
     ip_header_t iph;
     udp_header_t udph;
-    unsigned char packet_ack;
+    unsigned short expected_packet_num; //Number of expected packets
     int packet_number;
-    unsigned char data[PACKET_DATA_LEN]; //Actual data
+    unsigned char data[PACKET_DATA_LEN]; //Actual datpa
 }packet_t;
 
 typedef struct packet_circular_buffer {

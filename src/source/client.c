@@ -285,7 +285,7 @@ int main(int argc, char *argv[]) {
         pcap_freealldevs(devices);
         return -1;
     }
-    printf("A");
+    //printf("A");
     //Checking if WiFi device was choosen
     /*if(pcap_datalink(wifi_device) != DLT_IEEE802_11) 	{
         printf("\nChoose a valid WiFi based device.\n");
@@ -301,8 +301,13 @@ int main(int argc, char *argv[]) {
     while(prepare_packet_for_sending(data_file, &sending_packet) >= 0) { //ova funkcija vraca -1 kada je stigla do end of file
         sending_packet.packet_number = packet_number;
         sending_packets[packet_number] = sending_packet;
-        sending_packets[packet_number].udph.checksum = calc_udp_checksum(sending_packet); //Ovde racunamo checksum
+        //printf("Trying to calculate sum. \n");
+        sending_packets[packet_number].udph.checksum = htons(calc_udp_checksum(&sending_packet)); //Ovde racunamo checksum
+        //printf("Packet number %d loaded.\n", packet_number);
         packet_number++;
+    }
+    for(i = 0; i < packet_number; i++) {
+        sending_packets[packet_number].expected_packet_num = packet_number; //Moze se optimizovati da samo prvi paket salje packet_number
     }
     printf("Packet preparation finished. Number of packets prepared: %d\n", packet_number);
 

@@ -264,10 +264,11 @@ unsigned short calc_ip_checksum(const ip_header_t *ih) {
 
 unsigned short calc_udp_checksum(const packet_t * p) { //obrati paznju da se ovo zove tek kada se podaci napune u udp paket
     unsigned long int checksum_value = 0;
-    unsigned char i;
+    unsigned short i;
     unsigned short *buff = (unsigned short*)p;
     for(i = 0; i < sizeof(packet_t)/2; i++) { //sizeof vraca broj byte-a, /2 ce vracati broj short-ova (16)-bitnih vrednosti
-        if(i = 3) continue; //preskacemo samo checksum polje, koje je na cetvrtom mestu
+        //printf("sum loop %d\n", i);
+        if(i == 3) continue; //preskacemo samo checksum polje, koje je na cetvrtom mestu
         checksum_value += buff[i];// idemo kroz citav paket
         if(checksum_value >> 16)//ako imamo carry pit onda ga dodajemo napred
             checksum_value = (checksum_value & 0xffff) + 1;
