@@ -125,10 +125,10 @@ int main(int argc, char *argv[]) {
 
     //OVO MORA DA STOJI ZATO STO NAM TREBAJU DVA UREDJAJA ZA SLANJE
     //JEDAN ZA WIFI DRUGI ZA ETHERNET
-    printf("F\n");
 
+    printf("Choose an ETHERNET device:\n");
     ethernet_device_item = select_device(devices);
-    printf("E\n");
+    printf("Choose a WiFi device:\n");
     wifi_device_item = select_device(devices);
 
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
 		return -1;
     }
     */
-    printf("UPomoc\n");
+
     // Open the ethernet device for sending
     if ((ethernet_device = pcap_open_live(ethernet_device_item->name,		// name of the device
     									65536,						// portion of the packet to capture (65536 guarantees that the whole 																		   packet will be captured on all the link layers)
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     }
     printf("Cernobil\n");
     if(pcap_datalink(ethernet_device) != DLT_EN10MB) 	{
-        printf("\nChoose a valid Ethernet based device.\n");
+        printf("\nChoose a valid ETHERNET based device.\n");
         pcap_freealldevs(devices);
         return -1;
     }
