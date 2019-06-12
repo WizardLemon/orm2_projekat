@@ -132,10 +132,11 @@ void* thread_function_sending(void* sending_device) {
                 printf("Packet %d sent by thread %d.\n", packets_sent_number, this_thread_number);
                 packets_sent_number++;
                 if(packets_sent_number >= packet_number) {
-                    sending_sleep_time[this_thread_number] = SENDING_FAIL_ATTEMPT_CLIENT; //stavljamo sleep time na sleep funkciju na 1s
+                    //printf("Paket number %d\n", packet_number);
+                    sending_sleep_time[this_thread_number] = SENDING_FAIL_ATTEMPT_CLIENT*10; //stavljamo sleep time na sleep funkciju na 1s
                     packets_sent_number = 0;
                 } else {
-                    sending_sleep_time[this_thread_number]= MINIMUM_TIMEOUT_TIME;
+                    sending_sleep_time[this_thread_number] = MINIMUM_TIMEOUT_TIME;
                 }
             }
         }
@@ -333,16 +334,16 @@ int main(int argc, char *argv[]) {
 #else
     /* LINUX COMPATIBILITY BEGIN */
     pthread_mutex_init(&sending_mutex, NULL);
-    pthread_t sending_thread[2]; //One sending thread is for WiFi, other is for internet
-    pthread_t receiving_thread[2]; //One receiving thread is for WiFi, other is for internet
+    pthread_t sending_thread[2], receiving_thread[2]; //One sending thread is for WiFi, other is for internet
+                                             //One receiving thread is for WiFi, other is for internet
     pthread_create(&sending_thread[0], NULL, thread_function_sending, wifi_device);
     pthread_create(&sending_thread[1], NULL, thread_function_sending, ethernet_device);
     pthread_create(&receiving_thread[0], NULL, thread_function_receive, wifi_device);
-    pthread_create(&receiving_thread[0], NULL, thread_function_receive, ethernet_device);
+    pthread_create(&receiving_thread[1], NULL, thread_function_receive, ethernet_device);
     pthread_detach(sending_thread[0]);
     pthread_detach(sending_thread[1]);
-    //pthread_detach(receiving_thread[0]);
-    //pthread_detach(receiving_thread[1]); //KADA SE DETACHUJE ONDA DOBIJEMO SEG FAULT
+    pthread_detach(receiving_thread[0]);
+    pthread_detach(receiving_thread[1]); //KADA SE DETACHUJE ONDA DOBIJEMO SEG FAULT
     while(1) {
         usleep(100000000);
     }
