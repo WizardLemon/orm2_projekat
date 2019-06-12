@@ -27,7 +27,8 @@
 
 /* GLOBAL VARIABLES BEGIN */
 packet_t sending_packets[PACKET_ARRAY_MAX_LEN];
-unsigned int sending_sleep_time = 1;
+unsigned int sending_sleep_time[2] = {10000, 10000};
+unsigned int receiving_sleep_time[2] = {10000, 10000};
 unsigned int packet_number = 0;
 unsigned int packets_sent_number = 0;
 unsigned char receiving_thread_number = 0;
@@ -60,16 +61,15 @@ int client_receive_ack_packet(pcap_t * device) {
 }
 
 void* thread_function_receive(void* device) {
-    unsigned int sleep_time = 2000;
     int packet_received_number = -1;
     unsigned char received_error_number = 0;
     unsigned char this_thread_number = receiving_thread_number++;
 
     while(1) {
-        usleep(sleep_time);
+        usleep(receiving_sleep_time[this_thread_number]);
         if((packet_received_number = client_receive_ack_packet((pcap_t*)device)) < 0) {
             printf("Error while receiving next ACK packet on thread %d.\n", this_thread_number);
-//            if(received_error_number++ > RECEIVE_FAIL_ATTEMPT_CLIENT) {
+//            if((receiving_sleep_time[this_thread_number]*=2) > RECEIVE_FAIL_ATTEMPT_CLIENT) {
 //                printf("Receiving ACK packets failed too many times by thread %d. Stoping thread.\n", received_error_number);
 //                return NULL;
 //            }
@@ -116,7 +116,7 @@ void* thread_function_sending(void* sending_device) {
 #ifdef _WIN32
 
 #else
-        usleep(sending_sleep_time);
+        usleep(sending_sleep_time[this_thread_number]);
         pthread_mutex_lock(&sending_mutex); //Zakljucavamo zato sto ne zelimo da istovremeno i wifi i ethernet pristupe sending_packets nizu
         if(packet_sent_confirmation[packets_sent_number] < 2) { //proveravamo da li je poslat i da li je primljen ACK (AKO JESTE ONDA JE 2)
             printf("Initiating a packet sending for packet %d by thread %d.\n", packets_sent_number, this_thread_number);
@@ -124,7 +124,7 @@ void* thread_function_sending(void* sending_device) {
                                (char*)&sending_packets[packets_sent_number],
                                sizeof(packet_t))) {
                 printf("Sending failed by thread %d.\n", this_thread_number);
-                if(sending_fail_attempt++ > SENDING_FAIL_ATTEMPT_CLIENT) {
+                if((sending_sleep_time[this_thread_number] *= 2) > SENDING_FAIL_ATTEMPT_CLIENT) {
                     printf("Critical number of sending failed by thread %d. Sending stoped.\n", this_thread_number);
                 }
             } else {
@@ -132,10 +132,10 @@ void* thread_function_sending(void* sending_device) {
                 printf("Packet %d sent by thread %d.\n", packets_sent_number, this_thread_number);
                 packets_sent_number++;
                 if(packets_sent_number >= packet_number) {
-                    sending_sleep_time = 3000000; //stavljamo sleep time na sleep funkciju na 1s
+                    sending_sleep_time[this_thread_number] = SENDING_FAIL_ATTEMPT_CLIENT; //stavljamo sleep time na sleep funkciju na 1s
                     packets_sent_number = 0;
                 } else {
-                    sending_sleep_time = 1;
+                    sending_sleep_time[this_thread_number]= MINIMUM_TIMEOUT_TIME;
                 }
             }
         }
