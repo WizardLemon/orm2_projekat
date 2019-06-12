@@ -64,8 +64,8 @@ pcap_if_t* select_device(pcap_if_t* devices)
 {
     int device_number;
     int i = 0;			// Count devices and provide jumping to the selected device
-    pcap_if_t* device;	// Iterator for device list
 
+    pcap_if_t* device;	// Iterator for device lis
     // Print the list
     for(device=devices; device; device=device->next)
     {
@@ -94,8 +94,9 @@ pcap_if_t* select_device(pcap_if_t* devices)
     }
 
     // Jump to the selected device
-    for (device=devices, i=0; i< device_number-1 ;device=device->next, i++);
-
+    printf("SD: A\n");
+    for (device=devices, i=0; i< device_number-1; device=device->next, i++);
+    printf("SD: B\n");
     return device;
 }
 

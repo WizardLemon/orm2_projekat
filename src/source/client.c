@@ -36,7 +36,7 @@ const unsigned short home_port = 6000;
 const unsigned short dest_port = 6000;
 /* GLOBAL VARIABLES END */
 
-int client_receive_ack_packet(pcap_if_t * device, packet_t * packet_receiving_array) {
+int client_receive_ack_packet(pcap_t * device, packet_t * packet_receiving_array) {
     unsigned char result = 0;
     struct pcap_pkthdr ** pkt_header; //Ovo se koristi za statistiku;
     const u_char ** pcap_temp_data; //Ovo treba zameniti tako da se koristi packet_receiving_array
@@ -70,11 +70,11 @@ void* thread_function_sending(void* sending_device) {
 
 #else
         pthread_mutex_lock(&sending_mutex); //Zakljucavamo zato sto ne zelimo da istovremeno i wifi i ethernet pristupe sending_packets nizu
-        if(pcap_sendpacket(&(sending_device),
+        if(pcap_sendpacket((pcap_t *)sending_device,
                            (char*)&sending_packets[number_of_packets_for_sending],
                            sizeof(packet_t))) {
         printf("Sending error. Sending stoped");
-        return -1;
+        return NULL;
 
         }
         pthread_mutex_unlock(&sending_mutex); //Zakljucavamo zato sto ne zelimo da istovremeno i wifi i ethernet pristupe sending_packets nizu
@@ -102,8 +102,7 @@ int load_txt_for_sending(FILE * file_name, packet_t * packet_array) {
 
 int main(int argc, char *argv[]) {
 
-    pcap_if_t * ethernet_device_item; //Ethernet interface
-    pcap_if_t * wifi_device_item;  //Wifi interface
+    pcap_if_t * ethernet_device_item, * wifi_device_item; //Ethernet interface, Wifi interface
     pcap_if_t * devices;        //List of network interfaces
     pcap_t * ethernet_device; //Ethernet interface
     pcap_t * wifi_device;  //Wifi interface
@@ -117,8 +116,6 @@ int main(int argc, char *argv[]) {
     unsigned int netmask;
     char filter_exp[] = "";
     unsigned char i, j, k; //iterators
-    unsigned char number_of_sending = atoi(argv[1]);
-
     // Retrieve the device list
     if(pcap_findalldevs(&devices, errorMsg) == -1)
     {
@@ -128,10 +125,14 @@ int main(int argc, char *argv[]) {
 
     //OVO MORA DA STOJI ZATO STO NAM TREBAJU DVA UREDJAJA ZA SLANJE
     //JEDAN ZA WIFI DRUGI ZA ETHERNET
+    printf("F\n");
+
     ethernet_device_item = select_device(devices);
+    printf("E\n");
     wifi_device_item = select_device(devices);
 
-    /*
+
+    /*/*
     current_device = select_device(devices);
     
     // Check if device is valid
@@ -141,28 +142,28 @@ int main(int argc, char *argv[]) {
 		return -1;
     }
     */
-    
+    printf("UPomoc\n");
     // Open the ethernet device for sending
     if ((ethernet_device = pcap_open_live(ethernet_device_item->name,		// name of the device
     									65536,						// portion of the packet to capture (65536 guarantees that the whole 																		   packet will be captured on all the link layers)
-                                        0,							// promiscuous mode
+                                        0,							// non promiscuous mode
                                         MINIMUM_TIMEOUT_TIME,						// read timeout
         								errorMsg					// buffer where error message is stored
     									)) == NULL)
     {
-        printf("\nUnable to open the adapter. %s is not supported by libpcap/WinPcap\n", ethernet_device_item->name);
+        printf("%s", errorMsg);
+        printf("\nUnable to open the %s ethernet adapter.", ethernet_device_item->name);
         pcap_freealldevs(devices);
         return -1;
     }
-
-    //Checking if Ethernet device was choosen
+    printf("Cernobil\n");
     if(pcap_datalink(ethernet_device) != DLT_EN10MB) 	{
         printf("\nChoose a valid Ethernet based device.\n");
         pcap_freealldevs(devices);
         return -1;
     }
 
-    //Open the wiif device for sending
+    //Open the WiFi device for sending
     if ((wifi_device = pcap_open_live(wifi_device_item->name,		// name of the device
                                         65536,						// portion of the packet to capture (65536 guarantees that the whole 																		   packet will be captured on all the link layers)
                                         0,							// promiscuous mode
@@ -170,22 +171,23 @@ int main(int argc, char *argv[]) {
                                         errorMsg					// buffer where error message is stored
                                         )) == NULL)
     {
-        printf("\nUnable to open the adapter. %s is not supported by libpcap/WinPcap\n", wifi_device_item->name);
+        printf("%s", errorMsg);
+        printf("\nUnable to open the %s WiFi adapter.", wifi_device_item->name);
         pcap_freealldevs(devices);
         return -1;
     }
-
+    printf("A");
     //Checking if WiFi device was choosen
     if(pcap_datalink(wifi_device) != DLT_IEEE802_11) 	{
-        printf("\nChoose a valid Ethernet based device.\n");
+        printf("\nChoose a valid WiFi based device.\n");
         pcap_freealldevs(devices);
         return -1;
     }
-
+    //Open file for reading
     if((data_file = fopen("random.txt", "r")) == NULL) {
         return -1;
     }
-
+    printf("B");
     while(prepare_packet_for_sending(data_file, &sending_packet) > 0) { //ova funkcija vraca -1 kada je stigla do end of file
         sending_packet.packet_number = current_packet_sequence;
         sending_packets[current_packet_sequence] = sending_packet;
