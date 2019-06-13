@@ -16,7 +16,7 @@
 #define IP_FRAGMENTATION_FLAG 1 //ZABRANJENO
 #define IP_TIME_TO_LIVE 13
 #define IP_NEXT_PROTOCOL 17
-#define ETHERNET_TYPE 0x0800
+#define ETHERNET_TYPE 0x0800 //za IPv4
 
 
 typedef struct ethernet_header{
@@ -56,9 +56,9 @@ typedef struct packet {
     ethernet_header_t eth;
     ip_header_t iph;
     udp_header_t udph;
-    unsigned char packet_ack;
+    unsigned short expected_packet_num; //Number of expected packets
     int packet_number;
-    unsigned char data[PACKET_DATA_LEN]; //Actual data
+    unsigned char data[PACKET_DATA_LEN]; //Actual datpa
 }packet_t;
 
 typedef struct packet_circular_buffer {
@@ -167,6 +167,8 @@ void init_packet_headers(packet_t * p, const ethernet_header_t * eh,
                      const udp_header_t * uh);
 
 unsigned short calc_ip_checksum(const ip_header_t *ih);
+
+unsigned short calc_udp_checksum(const packet_t * p);
 
 #endif // UTILITIES_H
 
