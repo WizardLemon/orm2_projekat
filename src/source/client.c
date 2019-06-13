@@ -265,7 +265,6 @@ int main(int argc, char *argv[]) {
         pcap_freealldevs(devices);
         return -1;
     }
-    printf("Cernobil\n");
     if(pcap_datalink(ethernet_device) != DLT_EN10MB) 	{
         printf("\nChoose a valid ETHERNET based device.\n");
         pcap_freealldevs(devices);
@@ -285,7 +284,6 @@ int main(int argc, char *argv[]) {
         pcap_freealldevs(devices);
         return -1;
     }
-    //printf("A");
     //Checking if WiFi device was choosen
     /*if(pcap_datalink(wifi_device) != DLT_IEEE802_11) 	{
         printf("\nChoose a valid WiFi based device.\n");

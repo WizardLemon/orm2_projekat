@@ -94,9 +94,8 @@ pcap_if_t* select_device(pcap_if_t* devices)
     }
 
     // Jump to the selected device
-    printf("SD: A\n");
     for (device=devices, i=0; i< device_number-1; device=device->next, i++);
-    printf("SD: B\n");
+
     return device;
 }
 

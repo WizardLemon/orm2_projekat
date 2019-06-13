@@ -58,8 +58,6 @@ void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_h
 	
 	// long data_len = htons(p->udph->datagram_length) - sizeof(udp_header) - sizeof(int) - sizeof(unsigned short);
 	
-	// TODO dodati proveru da li je taj paket vec primljen
-	
 	if ( checksum == calc_udp_checksum(p) ) {	// proveravamo da li je doslo do gresaka
 		number_of_packets_recieved++;
 		
@@ -79,8 +77,8 @@ void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_h
 		
 		// Initialize headers for ACK
 		ethernet_header_t eth = create_eth_header(p->eth.dest_address, p->eth.src_address);
-		ip_header_t iph = create_ip_header(4, p->iph.dst_addr, p->iph.src_addr);			//TODO promeniti size
-		udp_header_t udph = create_udp_header(home_port, dest_port, 4);						//TODO promeniti size
+		ip_header_t iph = create_ip_header(sizeof(packet_t) - sizeof(ethernet_header_t), p->iph.dst_addr, p->iph.src_addr);
+		udp_header_t udph = create_udp_header(home_port, dest_port, sizeof(packet_t) - sizeof(ip_header_t) - sizeof(udp_header_t));
 		
 		init_packet_headers(ack_p, &eth, &iph, &udph);
 		
@@ -213,8 +211,6 @@ int main(int argc, char *argv[]) {
         pcap_freealldevs(devices);
         return -1;
     }
-    
-    printf("A");
     
     //Checking if WiFi device was chosen
     if(pcap_datalink(wifi_device) != DLT_IEEE802_11) 	{
