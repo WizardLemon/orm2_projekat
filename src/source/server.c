@@ -26,7 +26,7 @@
 
 /* GLOBAL VARIABLES BEGIN */
 packet_t recieved_packets[PACKET_ARRAY_MAX_LEN];
-unsigned int number_of_packets_recieved = 0;
+unsigned short number_of_packets_recieved = 0;
 unsigned short packet_sequence[PACKET_ARRAY_MAX_LEN]; //Ovo indeksiras sa sekvencom paketa
 const unsigned char home_MAC[6] = {0x08, 0x00, 0x27, 0x6a, 0x1e, 0x78};	// ZAPAMTI DA NAMESTIS NA SVOJ IP I MAC
 const unsigned char dest_MAC[6] = {0x08, 0x00, 0x27, 0x6a, 0x1e, 0x78};
@@ -34,6 +34,16 @@ const unsigned char home_ip[4] = {192, 168, 1, 1};
 const unsigned char dest_ip[4] = {192, 168, 1, 1};
 const unsigned short home_port = 6000;
 const unsigned short dest_port = 6000;
+
+int all_packets_recieved = 0;
+
+pcap_if_t * ethernet_device_item, * wifi_device_item; 	//Ethernet interface, Wifi interface
+pcap_if_t * devices;        							//List of network interfaces
+pcap_t * ethernet_device; 								//Ethernet interface
+pcap_t * wifi_device;  									//Wifi interface
+
+pthread_t *eth_thread;
+pthread_t *wifi_thread;
 /* GLOBAL VARIABLES END */
 
 void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_header, const unsigned char* packet_data) {
@@ -51,19 +61,25 @@ void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_h
 	if ( checksum == calc_udp_checksum(p) ) {	// proveravamo da li je doslo do gresaka
 		number_of_packets_recieved++;
 		
+		if ( number_of_packets_recieved == p->expected_packet_num ) {
+			all_packets_recieved = 1;
+		}
+		
 		recieved_packets[p->packet_number] = *(p);	// upisujemo primljeni packet u listu paketa
 		//packet_sequence[p->packet_number] = 1; // upisujemo 1 na poziciju primljenog paketa, da znamo da je na tom mestu stigao
-		
-		// Initialize headers for ACK
-		ethernet_header_t eth = create_eth_header(p->eth.dest_address, p->eth.src_address);
-		ip_header_t iph = create_ip_header(4, p->iph.dst_addr, p->iph.src_addr);
-		udp_header_t udph = create_udp_header(home_port, dest_port, 4);
+
 		// Initialize ACK
 		packet_t *ack_p;
 		ack_p->packet_number = p->packet_number;
 		ack_p->data[0] = "A";
 		ack_p->data[1] = "C";
 		ack_p->data[2] = "K";
+		
+		// Initialize headers for ACK
+		ethernet_header_t eth = create_eth_header(p->eth.dest_address, p->eth.src_address);
+		ip_header_t iph = create_ip_header(4, p->iph.dst_addr, p->iph.src_addr);			//TODO promeniti size
+		udp_header_t udph = create_udp_header(home_port, dest_port, 4);						//TODO promeniti size
+		
 		init_packet_headers(ack_p, &eth, &iph, &udph);
 		
 		pcap_sendpacket((pcap_t *)interface, (char*)&ack_p, sizeof(ack_p));
@@ -76,14 +92,34 @@ void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_h
 	}
 }
 
+void *eth_thread_function() {
+	print("Hello from ethernet thread!\n");
+	
+	while( all_packets_recieved == 0 ) {
+		pcap_loop(ethernet_device, 1, packet_handler, (unsigned char*)ethernet_device);
+	}
+	
+	printf("Goodbye from ethernet thread!\n");
+	pthread_cancel(*wifi_thread);
+	pcap_breakloop(wifi_device);
+}
+
+void *wifi_thread_function() {
+	print("Hello from WiFi thread!\n");
+	
+	while( all_packets_recieved == 0 ) {
+	pcap_loop(wifi_device, 1, packet_handler, (unsigned char*)wifi_device);
+	}
+	
+	printf("Goodbye from WiFi thread!\n");
+	pthread_cancel(*eth_thread);
+	pcap_breakloop(ethernet_device);
+}
+
+
 int main(int argc, char *argv[]) {
 
-    pcap_if_t * ethernet_device_item, * wifi_device_item; 	//Ethernet interface, Wifi interface
-    pcap_if_t * devices;        							//List of network interfaces
-    pcap_t * ethernet_device; 								//Ethernet interface
-    pcap_t * wifi_device;  									//Wifi interface
-    
-    packet_t recieving_packets[PACKET_DATA_LEN], sending_packets[PACKET_DATA_LEN]; //PACKET_ARRAY
+    pcap_if_t * devices;        //List of network interfaces
     
     struct bpf_program fcode;
     char filter[] = "udp and dst port 6000";
@@ -213,6 +249,28 @@ int main(int argc, char *argv[]) {
 		printf("\n Error setting the filter.\n");
 		return -1;
 	}
-
+	
+	eth_thread = (pthread_t*) malloc(sizeof(pthread_t));
+	wifi_thread = (pthread_t*) malloc(sizeof(pthread_t));
+	
+	pthread_create(eth_thread, NULL, &wifi_thread_function, NULL);
+	pthread_create(wifi_thread, NULL, &eth_thread_function, NULL);
+	
+	pthread_join(*wifi_thread, NULL);
+	pthread_join(*eth_thread, NULL);
+	
+	data_file = fopen("output.txt", "wb");
+	
+	// TODO fwrite u fajl, nisam siguran kako da uradim input stream
+	// tojest da ucitam podatke iz paketa u neki buffer
+	
+	// Free resources
+	fclose(f);
+	free(eth_thread);
+	free(wifi_thread);
+	
+	// Close the devices
+	pcap_freealldevs(devices);
+	
     return 0;
 }
