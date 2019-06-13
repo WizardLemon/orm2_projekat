@@ -58,6 +58,8 @@ void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_h
 	
 	// long data_len = htons(p->udph->datagram_length) - sizeof(udp_header) - sizeof(int) - sizeof(unsigned short);
 	
+	// TODO dodati proveru da li je taj paket vec primljen
+	
 	if ( checksum == calc_udp_checksum(p) ) {	// proveravamo da li je doslo do gresaka
 		number_of_packets_recieved++;
 		
@@ -93,7 +95,7 @@ void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_h
 }
 
 void *eth_thread_function() {
-	print("Hello from ethernet thread!\n");
+	printf("Hello from ethernet thread!\n");
 	
 	while( all_packets_recieved == 0 ) {
 		pcap_loop(ethernet_device, 1, packet_handler, (unsigned char*)ethernet_device);
@@ -105,7 +107,7 @@ void *eth_thread_function() {
 }
 
 void *wifi_thread_function() {
-	print("Hello from WiFi thread!\n");
+	printf("Hello from WiFi thread!\n");
 	
 	while( all_packets_recieved == 0 ) {
 	pcap_loop(wifi_device, 1, packet_handler, (unsigned char*)wifi_device);
@@ -261,11 +263,14 @@ int main(int argc, char *argv[]) {
 	
 	data_file = fopen("output.txt", "wb");
 	
-	// TODO fwrite u fajl, nisam siguran kako da uradim input stream
-	// tojest da ucitam podatke iz paketa u neki buffer
+	// TODO proveriti da li fwrite radi kako treba
+	for ( i = 0; i < number_of_packets_recieved; i++ )
+	{
+		fwrite(recieved_packets[i].data, sizeof(unsigned char), sizeof(recieved_packets[i].data), data_file);
+	}
 	
 	// Free resources
-	fclose(f);
+	fclose(data_file);
 	free(eth_thread);
 	free(wifi_thread);
 	
