@@ -58,7 +58,7 @@ typedef struct packet {
     udp_header_t udph;
     unsigned short expected_packet_num; //Number of expected packets
     int packet_number;
-    unsigned char data[PACKET_DATA_LEN]; //Actual datpa
+    unsigned char data[PACKET_DATA_LEN]; //Actual data
 }packet_t;
 
 typedef struct packet_circular_buffer {

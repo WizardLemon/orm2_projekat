@@ -27,7 +27,7 @@
 /* GLOBAL VARIABLES BEGIN */
 packet_t recieved_packets[PACKET_ARRAY_MAX_LEN];
 unsigned int number_of_packets_recieved = 0;
-unsigned char packet_sequence[PACKET_ARRAY_MAX_LEN]; //Ovo indeksiras sa sekvencom paketa
+unsigned short packet_sequence[PACKET_ARRAY_MAX_LEN]; //Ovo indeksiras sa sekvencom paketa
 const unsigned char home_MAC[6] = {0x08, 0x00, 0x27, 0x6a, 0x1e, 0x78};	// ZAPAMTI DA NAMESTIS NA SVOJ IP I MAC
 const unsigned char dest_MAC[6] = {0x08, 0x00, 0x27, 0x6a, 0x1e, 0x78};
 const unsigned char home_ip[4] = {192, 168, 1, 1};
@@ -36,7 +36,7 @@ const unsigned short home_port = 6000;
 const unsigned short dest_port = 6000;
 /* GLOBAL VARIABLES END */
 
-void packet handler(unsigned char *interface, const struct pcap_pkthdr* packet_header, const unsigned char* packet_data) {
+void packet_handler(unsigned char *interface, const struct pcap_pkthdr* packet_header, const unsigned char* packet_data) {
 	
 	packet_t *p = (packet_t*) packet_data;
 	pcap_t *device = (pcap_t*) interface;
@@ -44,22 +44,36 @@ void packet handler(unsigned char *interface, const struct pcap_pkthdr* packet_h
 	int packet_sequence = p->packet_number;
 	printf("Packet number %d recieved.\n", packet_sequence);
 	
-	// unsigned short checksum = ntohs(p->iph->checksum);
-	// unsigned short checksum = ntohs(p->udph->checksum); // ovu treba iskoristiti
+	unsigned short checksum = ntohs(p->udph.checksum);
 	
-	long data_len = htons(p->udph->datagram_length) - sizeof(udp_header);
+	// long data_len = htons(p->udph->datagram_length) - sizeof(udp_header) - sizeof(int) - sizeof(unsigned short);
 	
-	// TODO
-	
-	// proveriti checksum -> ako valja
-	// inkrementirati broj primljenih paketa
-	// ubaciti paket u odgovarajuci array (recieved_packets[PACKET_ARRAY_MAX_LEN])?
-	// upisati u odgovarajucu packet array sekvencu (packet_sequence[PACKET_ARRAY_MAX_LEN])?
-	
-	// kada upisujemo u fajl? kako uopste znamo da smo primili sve pakete?
-	
-	// napraviti novi ACK paket
-	// poslati ga sa sendpacket
+	if ( checksum == calc_udp_checksum(p) ) {	// proveravamo da li je doslo do gresaka
+		number_of_packets_recieved++;
+		
+		recieved_packets[p->packet_number] = *(p);	// upisujemo primljeni packet u listu paketa
+		//packet_sequence[p->packet_number] = 1; // upisujemo 1 na poziciju primljenog paketa, da znamo da je na tom mestu stigao
+		
+		// Initialize headers for ACK
+		ethernet_header_t eth = create_eth_header(p->eth.dest_address, p->eth.src_address);
+		ip_header_t iph = create_ip_header(4, p->iph.dst_addr, p->iph.src_addr);
+		udp_header_t udph = create_udp_header(home_port, dest_port, 4);
+		// Initialize ACK
+		packet_t *ack_p;
+		ack_p->packet_number = p->packet_number;
+		ack_p->data[0] = "A";
+		ack_p->data[1] = "C";
+		ack_p->data[2] = "K";
+		init_packet_headers(ack_p, &eth, &iph, &udph);
+		
+		pcap_sendpacket((pcap_t *)interface, (char*)&ack_p, sizeof(ack_p));
+		
+		free(ack_p);
+		
+		printf("Sent ACK Packet\n");
+	} else {
+		printf("Checksum error recieving packet %d\n", packet_sequence);
+	}
 }
 
 int main(int argc, char *argv[]) {
